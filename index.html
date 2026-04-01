@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Canvas 拼圖遊戲</title>
+    <title>宏恩長老教會主日學2026復活節闖關活動</title>
     <style>
         html, body {
             width: 100%;
@@ -11,10 +11,10 @@
             margin: 0;
             padding: 0;
             overflow: hidden; /* 防止出現滾動條 */
-            background-color: #ffffff; /* 調整為白色背景 */
+            background-color: #ffffff; /* 白色背景 */
             font-family: sans-serif;
         }
-        /* 新增標題樣式 */
+        /* 標題樣式 */
         #gameTitle {
             position: absolute;
             top: 20px;
@@ -41,7 +41,7 @@
             transform: translate(-50%, -50%);
             font-size: 24px;
             font-weight: bold;
-            color: #333; /* 調整為深色以適應白底 */
+            color: #333; 
             display: none;
             pointer-events: none;
         }
@@ -49,7 +49,7 @@
 </head>
 <body>
 
-    <h1 id="gameTitle">宏恩長老教會主日學2026復活節闖關活動</h1>
+    <h1 id="gameTitle">宏恩長老教會主日學2026復活節闖關活動——聖餐</h1>
     <div id="loading">載入圖片中...</div>
     <canvas id="gameCanvas"></canvas>
 
@@ -62,7 +62,7 @@
         let BOARD_W, BOARD_H, BOARD_X, BOARD_Y;
         let ERROR_MARGIN_X, ERROR_MARGIN_Y;
 
-        // 載入圖片
+        // 載入圖片 (請確保新的耶穌圖片檔名為 127627.jpg 並放在同一個資料夾)
         const img = new Image();
         img.src = '127627.jpg';
 
@@ -72,7 +72,7 @@
         let dragOffsetX = 0;
         let dragOffsetY = 0;
         let hoveredZone = null;
-        let currentActiveZone = null; // 新增：追蹤目前正在進行拼圖的區塊
+        let currentActiveZone = null; // 追蹤目前正在進行拼圖的區塊
         
         // 點擊判定用
         let pointerDownPos = { x: 0, y: 0 };
@@ -84,13 +84,17 @@
         let winScale = 1;
         let winGlow = 0;
 
-        // 定義5大區塊 (依照螺旋版面切割設計)
+        // 煙火與任務完成特效資料
+        let fireworks = [];
+        let missionCompleteTimers = [];
+
+        // 定義5大區塊 (上排2塊、下排3塊，面積皆為 1/5 且長寬相近的矩形)
         const zones = [
-            { id: 1, x: 0,   y: 0,   w: 0.7, h: 0.3, clicked: false },
-            { id: 2, x: 0.7, y: 0,   w: 0.3, h: 0.7, clicked: false },
-            { id: 3, x: 0.3, y: 0.7, w: 0.7, h: 0.3, clicked: false },
-            { id: 4, x: 0,   y: 0.3, w: 0.3, h: 0.7, clicked: false },
-            { id: 5, x: 0.3, y: 0.3, w: 0.4, h: 0.4, clicked: false } 
+            { id: 1, x: 0,       y: 0,   w: 0.5, h: 0.4, clicked: false, completed: false, glowUntil: 0 }, // 上排左
+            { id: 2, x: 0.5,     y: 0,   w: 0.5, h: 0.4, clicked: false, completed: false, glowUntil: 0 }, // 上排右
+            { id: 3, x: 0,       y: 0.4, w: 1/3, h: 0.6, clicked: false, completed: false, glowUntil: 0 }, // 下排左
+            { id: 4, x: 1/3,     y: 0.4, w: 1/3, h: 0.6, clicked: false, completed: false, glowUntil: 0 }, // 下排中
+            { id: 5, x: 2/3,     y: 0.4, w: 1/3, h: 0.6, clicked: false, completed: false, glowUntil: 0 }  // 下排右
         ];
 
         // 視窗縮放處理，確保畫面盡可能滿版
@@ -115,8 +119,6 @@
             // 置中顯示，將 Y 軸稍微往下移避開標題
             BOARD_X = (canvas.width - BOARD_W) / 2;
             BOARD_Y = (canvas.height - BOARD_H) / 2 + 20;
-
-            // 移除原本基於整個拼圖板的誤差設定，改為在放開拼圖時動態計算單一碎片的 5%
         }
 
         window.addEventListener('resize', resizeCanvas);
@@ -130,11 +132,11 @@
         img.onerror = () => {
             loadingText.innerText = "圖片載入失敗，使用測試底圖";
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = 1000; tempCanvas.height = 600;
+            tempCanvas.width = 1000; tempCanvas.height = 1000;
             const tCtx = tempCanvas.getContext('2d');
-            tCtx.fillStyle = '#add8e6'; tCtx.fillRect(0,0,1000,600);
+            tCtx.fillStyle = '#add8e6'; tCtx.fillRect(0,0,1000,1000);
             tCtx.fillStyle = '#000'; tCtx.font = '40px Arial';
-            tCtx.fillText("測試底圖 (找不到 127627.jpg)", 250, 300);
+            tCtx.fillText("測試底圖 (找不到 127627.jpg)", 250, 500);
             img.src = tempCanvas.toDataURL();
         };
 
@@ -201,6 +203,39 @@
             ctx.closePath();
         }
 
+        // 觸發煙火與任務完成動畫的函式 (已強化)
+        function triggerFireworks(zone) {
+            const cx = BOARD_X + (zone.x + zone.w / 2) * BOARD_W;
+            const cy = BOARD_Y + (zone.y + zone.h / 2) * BOARD_H;
+
+            missionCompleteTimers.push({
+                timer: 90, // 文字動畫維持約 1.5 秒 (時間縮短一半)
+                cx: cx,
+                cy: cy
+            });
+
+            // 連續爆發 2 波煙火 (改為 2 波)
+            for(let wave = 0; wave < 2; wave++) {
+                setTimeout(() => {
+                    for (let i = 0; i < 150; i++) { // 每波 150 個粒子，增強華麗感
+                        const angle = Math.random() * Math.PI * 2;
+                        const speed = Math.random() * 12 + 2; // 爆發範圍更廣
+                        const colors = ['#FFD700', '#FFA500', '#FF4500', '#FFFFFF', '#00FF00', '#00FFFF', '#FF00FF', '#FF1493'];
+                        fireworks.push({
+                            x: cx + (Math.random() - 0.5) * 50, // 稍微錯開每波的爆發原點
+                            y: cy + (Math.random() - 0.5) * 50,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed,
+                            life: 1.0,
+                            decay: Math.random() * 0.02 + 0.01, // 衰減速度加快一倍，讓煙火更快消失
+                            color: colors[Math.floor(Math.random() * colors.length)],
+                            size: Math.random() * 4 + 2 // 粒子大小不一
+                        });
+                    }
+                }, wave * 150); // 每波間隔縮短為 150 毫秒
+            }
+        }
+
         // 獨立繪製單一碎片的函式
         function drawPiece(p) {
             const abs = getPieceAbs(p);
@@ -259,7 +294,7 @@
         // 點擊大區塊產生小拼圖
         function generatePieces(zone) {
             zone.clicked = true;
-            currentActiveZone = zone; // 設定當前作用中的區塊
+            currentActiveZone = zone; 
             
             const cols = 3;
             const rows = 3;
@@ -301,6 +336,7 @@
                     const randomRotation = [0, 90, 180, 270][Math.floor(Math.random() * 4)];
 
                     pieces.push({
+                        zoneId: zone.id, 
                         rx: rx, ry: ry, rw: rw, rh: rh,
                         x: randomX, y: randomY,   
                         rotation: randomRotation,
@@ -336,7 +372,6 @@
                 if (!p.locked) {
                     const abs = getPieceAbs(p);
                     ctx.save();
-                    // 考慮旋轉中心進行測試
                     ctx.translate(p.x + abs.w/2, p.y + abs.h/2);
                     ctx.rotate(p.rotation * Math.PI / 180);
                     ctx.translate(-(abs.tx + abs.w/2), -(abs.ty + abs.h/2));
@@ -433,8 +468,8 @@
                     const diffY = Math.abs(draggedPiece.y - abs.ty);
 
                     // 誤差容忍度：該碎片本身寬度與高度的 5%
-                    const marginX = abs.w * 0.05;
-                    const marginY = abs.h * 0.05;
+                    const marginX = abs.w * 0.1;
+                    const marginY = abs.h * 0.1;
 
                     if (diffX <= marginX && diffY <= marginY) {
                         draggedPiece.x = abs.tx;
@@ -442,9 +477,16 @@
                         draggedPiece.locked = true;
                         
                         // 檢查是否當前區塊碎片已全數歸位
-                        const stillHasActive = pieces.some(p => !p.locked);
-                        if (!stillHasActive) {
-                            currentActiveZone = null; // 清空當前作用中區塊狀態
+                        if (currentActiveZone) {
+                            const activePieces = pieces.filter(p => p.zoneId === currentActiveZone.id);
+                            const isZoneDone = activePieces.length > 0 && activePieces.every(p => p.locked);
+                            
+                            if (isZoneDone) {
+                                currentActiveZone.completed = true;  
+                                currentActiveZone.glowUntil = Date.now() + 10000; // 設定 10 秒後消失
+                                triggerFireworks(currentActiveZone); 
+                                currentActiveZone = null;            
+                            }
                         }
 
                         checkWinCondition();
@@ -461,16 +503,17 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (!isWin) {
-                // 1. 繪製區塊的底色 (包含尚未點擊的預設色與當前作用中的金黃色)
+                // 1. 繪製區塊的底色 (包含尚未點擊的預設色與當前作用中的 #FF8888)
                 zones.forEach(z => {
                     const zx = BOARD_X + z.x * BOARD_W, zy = BOARD_Y + z.y * BOARD_H;
                     const zw = z.w * BOARD_W, zh = z.h * BOARD_H;
 
                     if (currentActiveZone) {
                         if (z === currentActiveZone) {
-                            ctx.fillStyle = 'rgba(255, 215, 0, 0.5)'; // 金黃色底色
+                            // 設定為 #FF8888 加上半透明以顯現底圖輪廓
+                            ctx.fillStyle = 'rgba(255, 136, 136, 0.6)'; 
                             ctx.fillRect(zx, zy, zw, zh);
-                            ctx.strokeStyle = '#888';
+                            ctx.strokeStyle = '#FF8888';
                             ctx.lineWidth = 2;
                             ctx.strokeRect(zx, zy, zw, zh);
                         } else if (!z.clicked) {
@@ -482,7 +525,8 @@
                         }
                     } else {
                         if (!z.clicked) {
-                            ctx.fillStyle = (hoveredZone === z) ? 'rgba(52, 152, 219, 0.4)' : 'rgba(0, 0, 0, 0.05)';
+                            // Hover 時給予淡淡的 #FF8888
+                            ctx.fillStyle = (hoveredZone === z) ? 'rgba(255, 136, 136, 0.3)' : 'rgba(0, 0, 0, 0.05)';
                             ctx.fillRect(zx, zy, zw, zh);
                             ctx.strokeStyle = '#888';
                             ctx.lineWidth = 2;
@@ -493,6 +537,31 @@
 
                 // 2. 繪製已經鎖定 (拼好) 的碎片
                 pieces.filter(p => p.locked).forEach(p => drawPiece(p));
+
+                // 2.5 繪製完成區塊的金黃色光芒邊框 (帶有 10 秒計時與淡出效果)
+                zones.forEach(z => {
+                    if (z.completed && Date.now() < z.glowUntil) {
+                        let alpha = 1;
+                        let timeLeft = z.glowUntil - Date.now();
+                        // 最後 1 秒逐漸淡出
+                        if (timeLeft < 1000) {
+                            alpha = Math.max(0, timeLeft / 1000);
+                        }
+
+                        const zx = BOARD_X + z.x * BOARD_W, zy = BOARD_Y + z.y * BOARD_H;
+                        const zw = z.w * BOARD_W, zh = z.h * BOARD_H;
+                        ctx.save();
+                        ctx.shadowColor = `rgba(255, 215, 0, ${alpha})`;
+                        ctx.shadowBlur = 15;
+                        ctx.strokeStyle = `rgba(255, 215, 0, ${alpha})`;
+                        ctx.lineWidth = 4;
+                        ctx.strokeRect(zx, zy, zw, zh);
+                        // 內發光效果
+                        ctx.shadowBlur = 5;
+                        ctx.strokeRect(zx + 2, zy + 2, zw - 4, zh - 4);
+                        ctx.restore();
+                    }
+                });
 
                 // 3. 繪製白色半透明遮罩 (如果目前有進行中的區塊，遮罩其餘所有的區塊)
                 if (currentActiveZone) {
@@ -506,10 +575,10 @@
                     });
                 }
 
-                // 4. 繪製尚未鎖定的碎片 (確保畫在白色遮罩的上方，避免混淆)
+                // 4. 繪製尚未鎖定的碎片
                 pieces.filter(p => !p.locked && p !== draggedPiece).forEach(p => drawPiece(p));
                 
-                // 5. 繪製正在拖曳的碎片 (確保在畫面最頂層)
+                // 5. 繪製正在拖曳的碎片
                 if (draggedPiece) drawPiece(draggedPiece);
 
             } else {
@@ -529,6 +598,70 @@
                 ctx.drawImage(img, 0, 0, img.width, img.height, -BOARD_W/2, -BOARD_H/2, BOARD_W, BOARD_H);
                 ctx.restore();
             }
+
+            // 繪製煙火特效 (獨立於 isWin，確保畫在最上層)
+            if (fireworks.length > 0) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter'; // 使用 lighter 混合模式增加發光感
+                fireworks.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.08; // 重力
+                    p.life -= p.decay;
+                    if (p.life > 0) {
+                        ctx.globalAlpha = p.life;
+                        ctx.fillStyle = p.color;
+                        ctx.shadowColor = p.color;
+                        ctx.shadowBlur = 10;
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                });
+                fireworks = fireworks.filter(p => p.life > 0);
+                ctx.restore();
+            }
+
+            // 繪製任務完成文字動畫
+            missionCompleteTimers.forEach(mc => {
+                if (mc.timer > 0) {
+                    mc.timer--;
+                    ctx.save();
+                    ctx.translate(mc.cx, mc.cy);
+                    
+                    // 彈出與脈動效果 (配合縮短的 90 timer 重新計算縮放)
+                    let scale = 1;
+                    if (mc.timer > 75) {
+                        scale = 1 + (90 - mc.timer) * 0.05; // 快速彈出
+                    } else {
+                        scale = 1.2 + Math.sin(mc.timer * 0.1) * 0.05; // 緩慢脈動
+                    }
+                    ctx.scale(scale, scale);
+                    
+                    // 結尾逐漸淡出
+                    if (mc.timer < 15) {
+                        ctx.globalAlpha = mc.timer / 15;
+                    }
+
+                    ctx.font = 'bold 50px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    
+                    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowOffsetX = 3;
+                    ctx.shadowOffsetY = 3;
+
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 8;
+                    ctx.strokeText("任務完成", 0, 0);
+
+                    ctx.fillStyle = '#FFD700'; // 金黃色
+                    ctx.fillText("任務完成", 0, 0);
+                    ctx.restore();
+                }
+            });
+            missionCompleteTimers = missionCompleteTimers.filter(mc => mc.timer > 0);
 
             requestAnimationFrame(gameLoop);
         }
