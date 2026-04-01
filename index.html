@@ -116,9 +116,9 @@
             BOARD_X = (canvas.width - BOARD_W) / 2;
             BOARD_Y = (canvas.height - BOARD_H) / 2 + 20;
 
-            // 10% 誤差容忍度
-            ERROR_MARGIN_X = BOARD_W * 0.1;
-            ERROR_MARGIN_Y = BOARD_H * 0.1;
+            // 5% 誤差容忍度
+            ERROR_MARGIN_X = BOARD_W * 0.03;
+            ERROR_MARGIN_Y = BOARD_H * 0.03;
         }
 
         window.addEventListener('resize', resizeCanvas);
